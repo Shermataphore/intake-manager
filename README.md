@@ -33,12 +33,15 @@ This tool opens in a new window and provides three tabs:
 
    ```bash
    git clone https://github.com/Shermataphore/intake-manager.git
-   cd file
+   cd intake-manager
    ```
-2. Run the application:
+2. Create a `.env` file with the environment variables used in
+   `secrets.py` (for example `USERNAME` and `PASSWORD`).
+
+3. Run the application:
 
    ```bash
-   main.py
+   python main.py
    ```
 
 ## License
