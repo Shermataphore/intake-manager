@@ -5,7 +5,6 @@ from PyQt5.QtCore import Qt
 from gui.tabs.active_manifest import ActiveManifestTab
 from gui.tabs.vendor_products import VendorProductsTab
 from gui.tabs.vendor_names import VendorNamesTab
-from gui.tabs.regex_search import RegexProWithSaveTab
 from data.database import init_db
 
 class ManifestManagerApp(QMainWindow):
@@ -24,11 +23,11 @@ class ManifestManagerApp(QMainWindow):
 
     def init_ui(self):
         tabs = QTabWidget()
-        tabs.addTab(ActiveManifestTab(self.conn), "Active Manifest")
-        tabs.addTab(VendorProductsTab(self.conn), "Vendor Products")
-        tabs.addTab(VendorNamesTab(self.conn), "Vendor Name Matching")
-        self.regex_tab = RegexProWithSaveTab()
-        tabs.addTab(self.regex_tab, "Vendor Regex Config")
-        self.setCentralWidget(tabs)
+        self.vendor_products_tab = VendorProductsTab(self.conn)
+        self.vendor_names_tab = VendorNamesTab(self.conn)
 
-        tabs.widget(2).set_regex_tab(self.regex_tab)
+        tabs.addTab(ActiveManifestTab(self.conn), "Active Manifest")
+        tabs.addTab(self.vendor_products_tab, "Vendor Products")
+        tabs.addTab(self.vendor_names_tab, "Vendor Name Matching")
+
+        self.setCentralWidget(tabs)
