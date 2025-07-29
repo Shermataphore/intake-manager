@@ -48,6 +48,4 @@ This tool opens in a new window and provides three tabs:
 
 ## License
 
-Specify your license here.
-
-no license
+This is for private use only at this time. 
