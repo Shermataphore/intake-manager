@@ -1,9 +1,14 @@
 # ── intake-manager/data/database.py ───────────────────────────────────
 import sqlite3
 import os
+from dotenv import load_dotenv
 
-DB_FOLDER = r"D:\\Scripts\\Intake 7.20.25"
-DB_PATH = os.path.join(DB_FOLDER, "intake.db")
+load_dotenv()
+
+# Allow overrides via environment variables
+DEFAULT_DB_PATH = os.path.join(os.getcwd(), "intake.db")
+DB_PATH = os.getenv("INTAKE_DB_PATH", DEFAULT_DB_PATH)
+DB_FOLDER = os.path.dirname(DB_PATH)
 
 def init_db():
     os.makedirs(DB_FOLDER, exist_ok=True)
