@@ -32,13 +32,13 @@ This tool opens in a new window and provides three tabs:
 1. Clone this repository:
 
    ```bash
-   git clone https://github.com/Shermataphore/file.git
+   git clone https://github.com/Shermataphore/intake-manager.git
    cd file
    ```
 2. Run the application:
 
    ```bash
-   python Intake GUI 7.20.25 V2.4.3.py
+   main.py
    ```
 
 ## License
