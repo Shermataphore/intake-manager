@@ -37,8 +37,10 @@ This tool opens in a new window and provides three tabs:
    ```
 2. Create a `.env` file with the environment variables used in
    `secrets.py` (for example `USERNAME` and `PASSWORD`).
+3. *(Optional)* Set `INTAKE_DB_PATH` in your environment to override the
+   default location of `intake.db`.
 
-3. Run the application:
+4. Run the application:
 
    ```bash
    python main.py
