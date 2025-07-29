@@ -1,5 +1,15 @@
 # ── intake-manager/gui/tabs/vendor_names.py ──────────────────────────
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLineEdit, QPushButton, QTableWidget, QTableWidgetItem, QMessageBox
+from PyQt5.QtWidgets import (
+    QWidget,
+    QVBoxLayout,
+    QHBoxLayout,
+    QLineEdit,
+    QPushButton,
+    QTableWidget,
+    QTableWidgetItem,
+    QMessageBox,
+    QHeaderView,
+)
 from PyQt5.QtCore import Qt
 
 class VendorNamesTab(QWidget):
