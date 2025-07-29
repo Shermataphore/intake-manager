@@ -1,4 +1,4 @@
-# gui/tabs/Vendor_Products.py
+# gui/tabs/vendor_products.py
 from PyQt5.QtWidgets import QWidget, QLabel, QVBoxLayout
 
 class ActiveManifestTab(QWidget):
