@@ -5,8 +5,13 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+# Determine the base directory of the repository. This ensures that the
+# default database path is always anchored to the project root rather than
+# the current working directory.
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DEFAULT_DB_PATH = os.path.join(BASE_DIR, "intake.db")
+
 # Allow overrides via environment variables
-DEFAULT_DB_PATH = os.path.join(os.getcwd(), "intake.db")
 DB_PATH = os.getenv("INTAKE_DB_PATH", DEFAULT_DB_PATH)
 DB_FOLDER = os.path.dirname(DB_PATH)
 
