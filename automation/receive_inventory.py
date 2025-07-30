@@ -87,6 +87,8 @@ def scrape_receive_inventory():
         for item in items:
             print(f"  - {item}")
 
+    return results
+
 
 if __name__ == "__main__":
     scrape_receive_inventory()
