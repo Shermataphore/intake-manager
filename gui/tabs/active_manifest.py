@@ -25,8 +25,11 @@ class ActiveManifestTab(QWidget):
         self.manifestInput = QLineEdit()
         form.addRow("Manifest:", self.manifestInput)
 
-        #self.licenseInput = QComboBox()
-        #form.addRow("License:", self.licenseInput)
+        # License input. Dutchie does not expose this directly when scraping so
+        # we keep it as a free-form field for now.  It was previously commented
+        # out which caused an AttributeError when populating the table.
+        self.licenseInput = QLineEdit()
+        form.addRow("License:", self.licenseInput)
 
         # METRC Vendor as free-form input
         self.metrcVendorInput = QLineEdit()
@@ -90,6 +93,9 @@ class ActiveManifestTab(QWidget):
         # Received Date = first 10 characters of title
         date_str = title[:10]
         self.dateInput.setText(date_str)
+
+        # Automatically refresh the table when a new transaction is selected
+        self.on_load()
 
     def on_load(self):
         title = self.titleCombo.currentText()
