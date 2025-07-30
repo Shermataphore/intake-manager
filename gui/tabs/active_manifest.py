@@ -1,51 +1,44 @@
-# ── intake-manager/gui/tabs/active_manifest.py ───────────────────────
+# intake-manager/gui/tabs/active_manifest.py
 from PyQt5.QtWidgets import (
-    QWidget,
-    QVBoxLayout,
-    QHBoxLayout,
-    QFormLayout,
-    QLineEdit,
-    QDateEdit,
-    QComboBox,
-    QPushButton,
-    QTableWidget,
-    QTableWidgetItem,
-    QHeaderView,
-    QMessageBox,
+    QWidget, QVBoxLayout, QHBoxLayout, QFormLayout,
+    QComboBox, QLineEdit, QPushButton, QTableWidget,
+    QTableWidgetItem, QHeaderView
 )
-from PyQt5.QtCore import QDate, Qt
 from automation.receive_inventory import scrape_receive_inventory
 
 class ActiveManifestTab(QWidget):
     def __init__(self, conn):
         super().__init__()
         self.conn = conn
-        self.manifest_data = {}
+        self.scraped_results = {}
         self._build_ui()
+        self._connect_signals()
 
     def _build_ui(self):
         layout = QVBoxLayout(self)
 
-
-
-        # --- top form inputs ---
         form = QFormLayout()
         self.titleCombo = QComboBox()
         form.addRow("Transaction Title:", self.titleCombo)
+
+        # Manifest as free-form input
         self.manifestInput = QLineEdit()
         form.addRow("Manifest:", self.manifestInput)
-        self.licenseInput = QLineEdit()
-        form.addRow("License:", self.licenseInput)
-        self.metrcVendorInput = QComboBox()
+
+        #self.licenseInput = QComboBox()
+        #form.addRow("License:", self.licenseInput)
+
+        # METRC Vendor as free-form input
+        self.metrcVendorInput = QLineEdit()
         form.addRow("METRC Vendor:", self.metrcVendorInput)
-        self.dateInput = QDateEdit(calendarPopup=True)
-        self.dateInput.setDate(QDate.currentDate())
+
+        # Received Date as free-form input
+        self.dateInput = QLineEdit()
+        self.dateInput.setPlaceholderText("YYYY-MM-DD")
         form.addRow("Received Date:", self.dateInput)
+
         layout.addLayout(form)
 
-
-
-        # --- button row (Retrieve … left, Load … right) ---
         btnLayout = QHBoxLayout()
         self.retrieveButton = QPushButton("Scrape Manifests from Dutchie")
         btnLayout.addWidget(self.retrieveButton)
@@ -54,11 +47,6 @@ class ActiveManifestTab(QWidget):
         btnLayout.addWidget(self.loadButton)
         layout.addLayout(btnLayout)
 
-        # Connect buttons
-        self.retrieveButton.clicked.connect(self.scrape_manifests)
-        self.loadButton.clicked.connect(self.load_manifest)
-
-        # --- overview table ---
         self.overviewTable = QTableWidget(0, 11)
         self.overviewTable.setHorizontalHeaderLabels([
             "Title", "Manifest", "License", "METRC Vendor", "Received Date",
@@ -67,50 +55,57 @@ class ActiveManifestTab(QWidget):
         self.overviewTable.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         layout.addWidget(self.overviewTable)
 
-    def scrape_manifests(self):
-        """Retrieve manifests from Dutchie and populate the title combo."""
-        try:
-            data = scrape_receive_inventory()
-            if not isinstance(data, dict):
-                raise ValueError("No manifest data returned")
-            self.manifest_data = data
-            self.titleCombo.clear()
-            for title in data.keys():
-                self.titleCombo.addItem(title)
-        except Exception as exc:
-            QMessageBox.warning(self, "Scrape Error", str(exc))
+    def _connect_signals(self):
+        self.retrieveButton.clicked.connect(self.on_retrieve)
+        self.loadButton.clicked.connect(self.on_load)
+        self.titleCombo.currentTextChanged.connect(self.on_title_changed)
 
-    def load_manifest(self):
-        """Load selected manifest items into the overview table."""
-        title = self.titleCombo.currentText()
-        if not title or title not in self.manifest_data:
-            QMessageBox.warning(self, "No Manifest", "Please scrape and select a manifest first.")
+    def on_retrieve(self):
+        try:
+            self.scraped_results = scrape_receive_inventory()
+        except Exception as e:
+            print("Error scraping:", e)
             return
 
-        items = self.manifest_data[title]
-        self.overviewTable.setRowCount(0)
+        self.titleCombo.clear()
+        self.titleCombo.addItems(self.scraped_results.keys())
+        if self.titleCombo.count() > 0:
+            self.titleCombo.setCurrentIndex(0)
+            self.on_title_changed(self.titleCombo.currentText())
 
-        manifest = self.manifestInput.text().strip()
-        license_text = self.licenseInput.text().strip()
-        metrc_vendor = self.metrcVendorInput.currentText().strip()
-        received = self.dateInput.date().toString("yyyy-MM-dd")
+    def on_title_changed(self, title):
+        if not title:
+            self.dateInput.clear()
+            return
 
-        for r, item in enumerate(items):
-            self.overviewTable.insertRow(r)
-            values = [
-                title,
-                manifest,
-                license_text,
-                metrc_vendor,
-                received,
-                item.get("name", ""),
-                item.get("qty", ""),
-                item.get("cost", ""),
-                item.get("rec", ""),
-                "",
-                "",
-            ]
-            for c, val in enumerate(values):
-                itm = QTableWidgetItem(str(val))
-                itm.setTextAlignment(Qt.AlignCenter)
-                self.overviewTable.setItem(r, c, itm)
+        # Manifest = last 8 characters
+        self.manifestInput.setText(title[-8:])
+
+        # METRC Vendor = text between first and last hyphens
+        first_dash = title.find('-')
+        last_dash = title.rfind('-')
+        vendor = title[first_dash+1:last_dash] if 0 <= first_dash < last_dash else ''
+        self.metrcVendorInput.setText(vendor)
+
+        # Received Date = first 10 characters of title
+        date_str = title[:10]
+        self.dateInput.setText(date_str)
+
+    def on_load(self):
+        title = self.titleCombo.currentText()
+        items = self.scraped_results.get(title, [])
+
+        self.overviewTable.setRowCount(len(items))
+        for row, itm in enumerate(items):
+            self.overviewTable.setItem(row, 0, QTableWidgetItem(title))
+            self.overviewTable.setItem(row, 1, QTableWidgetItem(self.manifestInput.text()))
+            self.overviewTable.setItem(row, 2, QTableWidgetItem(self.licenseInput.currentText()))
+            self.overviewTable.setItem(row, 3, QTableWidgetItem(self.metrcVendorInput.text()))
+            self.overviewTable.setItem(row, 4, QTableWidgetItem(self.dateInput.text()))
+            self.overviewTable.setItem(row, 5, QTableWidgetItem(itm.get("name", "")))
+            qty = itm.get("quantity", itm.get("qty", ""))
+            self.overviewTable.setItem(row, 6, QTableWidgetItem(qty))
+            self.overviewTable.setItem(row, 7, QTableWidgetItem(itm.get("cost", "")))
+            self.overviewTable.setItem(row, 8, QTableWidgetItem(itm.get("retail", "")))
+            self.overviewTable.setItem(row, 9, QTableWidgetItem(""))
+            self.overviewTable.setItem(row, 10, QTableWidgetItem(""))
