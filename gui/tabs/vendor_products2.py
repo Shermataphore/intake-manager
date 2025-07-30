@@ -93,20 +93,18 @@ class VendorProductsTab(QWidget):
             self.load_vendor_products()
 
     def load_vendor_products(self):
-        """Fetch unique products for the selected Dutchie vendor and display them."""
+        """Fetch products for the selected Dutchie vendor and display them."""
         vendor = self.dutchieVendorCombo.currentText().strip()
         self.vendorProductTable.setRowCount(0)
         self.original_records = []  # to track for saving
         if not vendor:
             return
         cur = self.conn.cursor()
-        # Only select one row per catalog_name to avoid duplicates
         cur.execute(
             """
             SELECT metrc_name, catalog_name, cost, retail
             FROM master_product
             WHERE dutchie_vendor = ?
-            GROUP BY catalog_name
             """,
             (vendor,)
         )
@@ -125,7 +123,7 @@ class VendorProductsTab(QWidget):
                 self.vendorProductTable.setItem(r, c, item)
 
     def add_vendor_product_row(self):
-        """Insert a new product into master_product (prevent duplicates) and refresh the table."""
+        """Insert a new product into master_product and refresh the table."""
         metrc_name = self.prod_metrc_name_input.text().strip()
         catalog_name = self.prod_catalog_name_input.text().strip()
         dutchie_vendor = self.dutchieVendorCombo.currentText().strip()
@@ -133,23 +131,11 @@ class VendorProductsTab(QWidget):
             QMessageBox.warning(
                 self,
                 "Missing Data",
-                "Please enter product name, catalog name, and select a vendor.",
+                "Please enter both product names and select a vendor.",
             )
             return
+
         cur = self.conn.cursor()
-        # Prevent duplicate catalog entries for this vendor
-        cur.execute(
-            "SELECT COUNT(1) FROM master_product WHERE dutchie_vendor = ? AND catalog_name = ?",
-            (dutchie_vendor, catalog_name)
-        )
-        if cur.fetchone()[0] > 0:
-            QMessageBox.information(
-                self,
-                "Duplicate Entry",
-                f"Catalog '{catalog_name}' already exists for '{dutchie_vendor}'."
-            )
-            return
-        # Insert and commit
         cur.execute(
             """
             INSERT INTO master_product (metrc_name, catalog_name, dutchie_vendor)
