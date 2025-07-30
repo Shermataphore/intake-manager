@@ -50,5 +50,10 @@ def init_db():
         metrc_vendor TEXT PRIMARY KEY,
         dutchie_vendor TEXT
     )""")
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS vendor_names (
+        metrc_vendor TEXT,
+        dutchie_vendor TEXT
+    )""")
     conn.commit()
     return conn
