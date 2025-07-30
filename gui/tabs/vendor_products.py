@@ -24,6 +24,8 @@ class VendorProductsTab(QWidget):
         form.addRow("Dutchie Vendor:", self.dutchieVendorCombo)
         layout.addLayout(form)
 
+
+
         # Separator
         sep = QFrame()
         sep.setFrameShape(QFrame.HLine)
