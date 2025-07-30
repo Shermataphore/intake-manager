@@ -1,7 +1,5 @@
 # automation/receive_inventory.py
-"""
-Scrape Dutchie's 'Receive Inventory' manifests and their product details.
-"""
+"""Scrape Dutchie's 'Receive Inventory' manifests and their product details."""
 import time
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -10,16 +8,12 @@ from automation.login import login_to_dutchie
 
 
 def scrape_receive_inventory():
-    """
-    Logs in, navigates to the Receive Inventory page, iterates manifests,
-    and scrapes product rows for each manifest.
-    Prints results to stdout.
-    """
+    """Log in and scrape Receive Inventory manifests and their products."""
     # 1) Log in and get Selenium driver
     driver = login_to_dutchie()
     if not driver:
         print("[Receive Inventory] Login failed.")
-        return
+        return {}
 
     # 2) Navigate to Receive Inventory page
     url = "https://peak.backoffice.dutchie.com/products/inventory/receive-inventory"
@@ -80,16 +74,15 @@ def scrape_receive_inventory():
 
         results[title] = items
 
-    # 5) Clean up and output
+    # 5) Clean up and return results
     driver.quit()
-    for title, items in results.items():
-        print(f"\nManifest: {title}")
-        for item in items:
-            print(f"  - {item}")
-
     return results
 
 
 if __name__ == "__main__":
-    scrape_receive_inventory()
+    data = scrape_receive_inventory()
+    for title, items in data.items():
+        print(f"\nManifest: {title}")
+        for item in items:
+            print(f"  - {item}")
 
