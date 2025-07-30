@@ -57,7 +57,7 @@ class VendorProductsTab(QWidget):
         self.metrcVendorCombo.addItem("Select a Vendor")
         cur = self.conn.cursor()
         for metrc, dutchie in cur.execute(
-            "SELECT metrc_vendor, dutchie_vendor FROM metrc_dutchie"
+            "SELECT metrc_vendor, dutchie_vendor FROM vendor_names"
         ):
             self.vendor_map[metrc] = dutchie
             self.metrcVendorCombo.addItem(metrc)

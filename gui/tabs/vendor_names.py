@@ -56,7 +56,7 @@ class VendorNamesTab(QWidget):
         cur = self.conn.cursor()
         for r, (metrc, dutchie) in enumerate(
             cur.execute(
-                "SELECT metrc_vendor, dutchie_vendor FROM metrc_dutchie"
+                "SELECT metrc_vendor, dutchie_vendor FROM vendor_names"
             )
         ):
             self.vendorNameTable.insertRow(r)
@@ -96,12 +96,12 @@ class VendorNamesTab(QWidget):
     def save_vendor_names(self):
         """Write the current table contents back to the database."""
         cur = self.conn.cursor()
-        cur.execute("DELETE FROM metrc_dutchie")
+        cur.execute("DELETE FROM vendor_names")
         for r in range(self.vendorNameTable.rowCount()):
             metrc = self.vendorNameTable.item(r, 0).text()
             dutchie = self.vendorNameTable.item(r, 1).text()
             cur.execute(
-                "INSERT OR REPLACE INTO metrc_dutchie(metrc_vendor, dutchie_vendor) VALUES (?, ?)",
+                "INSERT OR REPLACE INTO vendor_names(metrc_vendor, dutchie_vendor) VALUES (?, ?)",
                 (metrc, dutchie),
             )
         self.conn.commit()
