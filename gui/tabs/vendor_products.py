@@ -1,19 +1,22 @@
 # ── intake-manager/gui/tabs/vendor_products.py ───────────────────────
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QFormLayout, QLineEdit, QComboBox, QPushButton, \
-    QTableWidget, QTableWidgetItem, QHeaderView, QHBoxLayout, QFrame, QMessageBox
-from PyQt5.QtCore import Qt
+from PyQt5.QtWidgets import (
+    QWidget, QVBoxLayout, QFormLayout, QLineEdit, QComboBox,
+    QPushButton, QTableWidget, QTableWidgetItem, QHeaderView,
+    QHBoxLayout, QFrame, QMessageBox, QApplication
+)
+from PyQt5.QtCore import Qt, QEvent
 
 class VendorProductsTab(QWidget):
     def __init__(self, conn):
         super().__init__()
         self.conn = conn
         self._build_ui()
-        # Populate METRC dropdown on load; leave Dutchie blank
         self.load_vendor_mappings()
 
     def _build_ui(self):
         layout = QVBoxLayout(self)
-        # --- Vendor selectors ---
+
+        # Vendor selectors
         form = QFormLayout()
         self.metrcVendorCombo = QComboBox()
         form.addRow("METRC Vendor:", self.metrcVendorCombo)
@@ -26,7 +29,7 @@ class VendorProductsTab(QWidget):
         sep.setFrameShape(QFrame.HLine)
         layout.addWidget(sep)
 
-        # --- Add product inputs ---
+        # Add product inputs
         input_form = QFormLayout()
         self.prod_metrc_name_input = QLineEdit()
         self.prod_catalog_name_input = QLineEdit()
@@ -34,7 +37,7 @@ class VendorProductsTab(QWidget):
         input_form.addRow("Catalog Name", self.prod_catalog_name_input)
         layout.addLayout(input_form)
 
-        # Buttons for add/delete
+        # Add/Delete buttons
         btn_layout = QHBoxLayout()
         self.addProductButton = QPushButton("Add Product")
         self.deleteProductButton = QPushButton("Delete Selection")
@@ -47,7 +50,7 @@ class VendorProductsTab(QWidget):
         self.addProductButton.clicked.connect(self.add_vendor_product_row)
         self.deleteProductButton.clicked.connect(self.delete_selected_product)
 
-        # --- Products table ---
+        # Products table
         self.vendorProductTable = QTableWidget(0, 4)
         self.vendorProductTable.setHorizontalHeaderLabels([
             "METRC Name", "Catalog Name", "Cost", "Retail"
@@ -55,13 +58,45 @@ class VendorProductsTab(QWidget):
         self.vendorProductTable.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         layout.addWidget(self.vendorProductTable)
 
+        # Install event filter for paste
+        self.vendorProductTable.installEventFilter(self)
+
         # Save button
         self.saveButton = QPushButton("Save Changes")
         layout.addWidget(self.saveButton)
         self.saveButton.clicked.connect(self.save_product_changes)
 
+    def eventFilter(self, source, event):
+        # Capture Ctrl+V on table to paste multiline into METRC Name
+        if source == self.vendorProductTable and event.type() == QEvent.KeyPress:
+            if event.key() == Qt.Key_V and event.modifiers() & Qt.ControlModifier:
+                self.handle_table_paste()
+                return True
+        return super().eventFilter(source, event)
+
+    def handle_table_paste(self):
+        clipboard_text = QApplication.clipboard().text()
+        lines = [l for l in clipboard_text.splitlines() if l.strip()]
+        if not lines:
+            return
+        # Determine starting row: current row or 0
+        start_row = self.vendorProductTable.currentRow()
+        if start_row < 0:
+            start_row = 0
+        # Paste each line into METRC Name column
+        for i, text in enumerate(lines):
+            row = start_row + i
+            # Ensure row exists
+            if row >= self.vendorProductTable.rowCount():
+                self.vendorProductTable.insertRow(row)
+            item = self.vendorProductTable.item(row, 0)
+            if item is None:
+                item = QTableWidgetItem()
+                self.vendorProductTable.setItem(row, 0, item)
+            item.setText(text)
+
     def load_vendor_mappings(self):
-        """Populate only the METRC combo and cache mappings. Leave Dutchie blank."""
+        """Populate METRC combo and clear Dutchie."""
         self.vendor_map = {}
         self.metrcVendorCombo.clear()
         self.metrcVendorCombo.addItem("Select a Vendor")
@@ -71,21 +106,15 @@ class VendorProductsTab(QWidget):
         ):
             self.vendor_map[metrc] = dutchie
             self.metrcVendorCombo.addItem(metrc)
-        # Ensure Dutchie combo is empty at startup
         self.dutchieVendorCombo.clear()
 
     def update_dutchie_vendor(self):
-        """When a METRC vendor is picked, show only its mapped Dutchie name and load its products."""
+        """When METRC vendor changes, clear table and show its Dutchie mapping."""
         metrc_sel = self.metrcVendorCombo.currentText()
-        # Clear previous selections
         self.dutchieVendorCombo.clear()
         self.vendorProductTable.setRowCount(0)
-
-        # If placeholder selected, do nothing
         if metrc_sel == "Select a Vendor":
             return
-
-        # Fetch and display the one-to-one mapping
         dutchie = self.vendor_map.get(metrc_sel)
         if dutchie:
             self.dutchieVendorCombo.addItem(dutchie)
@@ -93,14 +122,13 @@ class VendorProductsTab(QWidget):
             self.load_vendor_products()
 
     def load_vendor_products(self):
-        """Fetch unique products for the selected Dutchie vendor and display them."""
+        """Load unique catalog entries and make cells editable."""
         vendor = self.dutchieVendorCombo.currentText().strip()
         self.vendorProductTable.setRowCount(0)
-        self.original_records = []  # to track for saving
+        self.original_records = []
         if not vendor:
             return
         cur = self.conn.cursor()
-        # Only select one row per catalog_name to avoid duplicates
         cur.execute(
             """
             SELECT metrc_name, catalog_name, cost, retail
@@ -110,14 +138,12 @@ class VendorProductsTab(QWidget):
             """,
             (vendor,)
         )
-        for r, row in enumerate(cur.fetchall()):
-            orig_metrc, orig_catalog, orig_cost, orig_retail = row
-            self.original_records.append((orig_metrc, orig_catalog))
+        for r, (m, cat, cost, ret) in enumerate(cur.fetchall()):
+            self.original_records.append((m, cat))
             self.vendorProductTable.insertRow(r)
-            for c, val in enumerate(row):
+            for c, val in enumerate((m, cat, cost, ret)):
                 item = QTableWidgetItem("" if val is None else str(val))
                 item.setTextAlignment(Qt.AlignCenter)
-                # Allow edits for METRC Name, Cost & Retail columns
                 if c in (0, 2, 3):
                     item.setFlags(item.flags() | Qt.ItemIsEditable)
                 else:
@@ -125,37 +151,25 @@ class VendorProductsTab(QWidget):
                 self.vendorProductTable.setItem(r, c, item)
 
     def add_vendor_product_row(self):
-        """Insert a new product into master_product (prevent duplicates) and refresh the table."""
+        """Add a new product, preventing duplicate catalog entries."""
         metrc_name = self.prod_metrc_name_input.text().strip()
         catalog_name = self.prod_catalog_name_input.text().strip()
         dutchie_vendor = self.dutchieVendorCombo.currentText().strip()
         if not (metrc_name and catalog_name and dutchie_vendor):
-            QMessageBox.warning(
-                self,
-                "Missing Data",
-                "Please enter product name, catalog name, and select a vendor.",
-            )
+            QMessageBox.warning(self, "Missing Data", "Please enter product and select vendor.")
             return
         cur = self.conn.cursor()
-        # Prevent duplicate catalog entries for this vendor
         cur.execute(
             "SELECT COUNT(1) FROM master_product WHERE dutchie_vendor = ? AND catalog_name = ?",
             (dutchie_vendor, catalog_name)
         )
         if cur.fetchone()[0] > 0:
-            QMessageBox.information(
-                self,
-                "Duplicate Entry",
-                f"Catalog '{catalog_name}' already exists for '{dutchie_vendor}'."
-            )
+            QMessageBox.information(self, "Duplicate Entry",
+                f"Catalog '{catalog_name}' already exists for '{dutchie_vendor}'.")
             return
-        # Insert and commit
         cur.execute(
-            """
-            INSERT INTO master_product (metrc_name, catalog_name, dutchie_vendor)
-            VALUES (?, ?, ?)
-            """,
-            (metrc_name, catalog_name, dutchie_vendor),
+            "INSERT INTO master_product (metrc_name, catalog_name, dutchie_vendor) VALUES (?,?,?)",
+            (metrc_name, catalog_name, dutchie_vendor)
         )
         self.conn.commit()
         self.prod_metrc_name_input.clear()
@@ -163,34 +177,27 @@ class VendorProductsTab(QWidget):
         self.load_vendor_products()
 
     def delete_selected_product(self):
-        """Delete the highlighted products from DB and table."""
+        """Delete highlighted rows from DB and table."""
         selected = self.vendorProductTable.selectionModel().selectedRows()
         if not selected:
             return
         cur = self.conn.cursor()
-        for model_idx in sorted(selected, key=lambda r: r.row(), reverse=True):
-            row = model_idx.row()
+        for idx in sorted(selected, key=lambda i: i.row(), reverse=True):
+            row = idx.row()
             metrc = self.vendorProductTable.item(row, 0).text()
             catalog = self.vendorProductTable.item(row, 1).text()
             cur.execute(
-                """
-                DELETE FROM master_product
-                WHERE metrc_name = ? AND catalog_name = ?
-                """,
-                (metrc, catalog),
+                "DELETE FROM master_product WHERE metrc_name=? AND catalog_name=?",
+                (metrc, catalog)
             )
             self.vendorProductTable.removeRow(row)
         self.conn.commit()
 
     def save_product_changes(self):
-        """Save edits in METRC Name, Cost, and Retail columns back to the database."""
+        """Save edited METRC, cost, and retail back to DB."""
         dutchie_vendor = self.dutchieVendorCombo.currentText().strip()
         if not dutchie_vendor:
-            QMessageBox.warning(
-                self,
-                "No Vendor Selected",
-                "Please select a METRC vendor first.",
-            )
+            QMessageBox.warning(self, "No Vendor", "Select a METRC vendor first.")
             return
         cur = self.conn.cursor()
         for r in range(self.vendorProductTable.rowCount()):
@@ -202,12 +209,9 @@ class VendorProductsTab(QWidget):
             retail = float(retail_text) if retail_text else None
             orig_metrc, orig_catalog = self.original_records[r]
             cur.execute(
-                """
-                UPDATE master_product
-                SET metrc_name = ?, cost = ?, retail = ?
-                WHERE metrc_name = ? AND catalog_name = ? AND dutchie_vendor = ?
-                """,
-                (new_metrc, cost, retail, orig_metrc, orig_catalog, dutchie_vendor),
+                "UPDATE master_product SET metrc_name=?, cost=?, retail=?"
+                " WHERE metrc_name=? AND catalog_name=? AND dutchie_vendor=?",
+                (new_metrc, cost, retail, orig_metrc, orig_catalog, dutchie_vendor)
             )
         self.conn.commit()
         QMessageBox.information(self, "Saved", "All changes have been saved.")
