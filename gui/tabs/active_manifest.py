@@ -104,9 +104,9 @@ class ActiveManifestTab(QWidget):
                 metrc_vendor,
                 received,
                 item.get("name", ""),
-                item.get("quantity", ""),
+                item.get("qty", ""),
                 item.get("cost", ""),
-                item.get("rec_price", ""),
+                item.get("rec", ""),
                 "",
                 "",
             ]
