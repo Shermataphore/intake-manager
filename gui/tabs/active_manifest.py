@@ -4,13 +4,32 @@ from PyQt5.QtWidgets import (
     QComboBox, QLineEdit, QPushButton, QTableWidget,
     QTableWidgetItem, QHeaderView
 )
+from PyQt5.QtCore import QObject, QThread, pyqtSignal
 from automation.receive_inventory import scrape_receive_inventory
+
+
+class InventoryScrapeWorker(QObject):
+    """Worker object that scrapes inventory data in a background thread."""
+
+    # Emits the scraped data once complete
+    resultsReady = pyqtSignal(dict)
+
+    def run(self):
+        """Execute the scraping task and emit the results."""
+        try:
+            data = scrape_receive_inventory()
+        except Exception as exc:  # pragma: no cover - debug aid
+            # Errors are printed so that the UI thread is not blocked
+            print("Error scraping:", exc)
+            data = {}
+        self.resultsReady.emit(data)
 
 class ActiveManifestTab(QWidget):
     def __init__(self, conn):
         super().__init__()
         self.conn = conn
         self.scraped_results = {}
+        self._scrape_thread = None
         self._build_ui()
         self._connect_signals()
 
@@ -64,14 +83,27 @@ class ActiveManifestTab(QWidget):
         self.titleCombo.currentTextChanged.connect(self.on_title_changed)
 
     def on_retrieve(self):
-        try:
-            self.scraped_results = scrape_receive_inventory()
-        except Exception as e:
-            print("Error scraping:", e)
-            return
+        """Spawn a worker thread to scrape inventory data."""
+        self.retrieveButton.setEnabled(False)
 
+        worker = InventoryScrapeWorker()
+        thread = QThread()
+        worker.moveToThread(thread)
+        thread.started.connect(worker.run)
+        worker.resultsReady.connect(self.handle_scrape_results)
+        worker.resultsReady.connect(thread.quit)
+        thread.finished.connect(worker.deleteLater)
+        thread.finished.connect(lambda: self.retrieveButton.setEnabled(True))
+        thread.start()
+
+        # keep a reference to avoid garbage collection
+        self._scrape_thread = thread
+
+    def handle_scrape_results(self, results):
+        """Receive scraped data on the main thread and update the UI."""
+        self.scraped_results = results
         self.titleCombo.clear()
-        self.titleCombo.addItems(self.scraped_results.keys())
+        self.titleCombo.addItems(results.keys())
         if self.titleCombo.count() > 0:
             self.titleCombo.setCurrentIndex(0)
             self.on_title_changed(self.titleCombo.currentText())
@@ -105,7 +137,8 @@ class ActiveManifestTab(QWidget):
         for row, itm in enumerate(items):
             self.overviewTable.setItem(row, 0, QTableWidgetItem(title))
             self.overviewTable.setItem(row, 1, QTableWidgetItem(self.manifestInput.text()))
-            self.overviewTable.setItem(row, 2, QTableWidgetItem(self.licenseInput.currentText()))
+            # licenseInput is a QLineEdit; grab its text directly
+            self.overviewTable.setItem(row, 2, QTableWidgetItem(self.licenseInput.text()))
             self.overviewTable.setItem(row, 3, QTableWidgetItem(self.metrcVendorInput.text()))
             self.overviewTable.setItem(row, 4, QTableWidgetItem(self.dateInput.text()))
             self.overviewTable.setItem(row, 5, QTableWidgetItem(itm.get("name", "")))
