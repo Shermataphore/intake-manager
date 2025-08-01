@@ -64,9 +64,6 @@ class ActiveManifestTab(QWidget):
         btnLayout = QHBoxLayout()
         self.retrieveButton = QPushButton("Scrape Manifests from Dutchie")
         btnLayout.addWidget(self.retrieveButton)
-        btnLayout.addStretch()
-        self.loadButton = QPushButton("Load Manifest into table")
-        btnLayout.addWidget(self.loadButton)
         layout.addLayout(btnLayout)
 
         self.overviewTable = QTableWidget(0, 11)
@@ -79,7 +76,6 @@ class ActiveManifestTab(QWidget):
 
     def _connect_signals(self):
         self.retrieveButton.clicked.connect(self.on_retrieve)
-        self.loadButton.clicked.connect(self.on_load)
         self.titleCombo.currentTextChanged.connect(self.on_title_changed)
 
     def on_retrieve(self):
